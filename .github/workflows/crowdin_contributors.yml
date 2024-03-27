@@ -1,60 +1,61 @@
-name: Crowdin Contributors Action
-
-on:
-  schedule:
-    - cron: '0 */12 * * *'
-  workflow_dispatch: {}
-
 env:
   CONTRIBUTORS_JSON_FILENAME: crowdin-contributors
-
 jobs:
   crowdin-contributors:
-    runs-on: ubuntu-latest
     if: github.repository == 'AndroidIDEOfficial/AndroidIDE'
+    runs-on: self-hosted
     steps:
-    - name: Checkout
+    - continue-on-error: true
+      name: Checkout
       uses: actions/checkout@v4
-
-    - name: Generate Crowdin Contributors table
+    - continue-on-error: true
+      env:
+        CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
+        CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
       id: generate_table
+      name: Generate Crowdin Contributors table
       uses: andrii-bodnar/action-crowdin-contributors@v2.0.0
-      continue-on-error: false
       with:
         contributors_per_line: 8
-        max_contributors: 32
-        image_size: 64
-        min_words_contributed: 100
+        crowdin_project_link: https://crowdin.com/project/androidide
         files: CROWDIN_CONTRIBUTORS.md
-        crowdin_project_link: "https://crowdin.com/project/androidide"
-      env:
-        CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
-        CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
-
-    - name: Write JSON report
-      uses: "DamianReeves/write-file-action@master"
+        image_size: 64
+        max_contributors: 32
+        min_words_contributed: 100
+    - continue-on-error: true
+      name: Write JSON report
+      uses: DamianReeves/write-file-action@master
       with:
+        contents: ${{ steps.generate_table.outputs.json_report }}
         path: ${{ env.CONTRIBUTORS_JSON_FILENAME }}_staging.json
         write-mode: overwrite
-        contents: ${{ steps.generate_table.outputs.json_report }}
+    - continue-on-error: true
+      name: Pretty-print JSON report
+      run: 'sudo apt-get install jq
 
-    - name: Pretty-print JSON report
-      run: |
-        sudo apt-get install jq
-        cat ${{ env.CONTRIBUTORS_JSON_FILENAME }}_staging.json | jq '.' > ${{ env.CONTRIBUTORS_JSON_FILENAME }}.json
+        cat ${{ env.CONTRIBUTORS_JSON_FILENAME }}_staging.json | jq ''.'' > ${{ env.CONTRIBUTORS_JSON_FILENAME
+        }}.json
+
         rm ${{ env.CONTRIBUTORS_JSON_FILENAME }}_staging.json
 
-    - name: Upload JSON report
+        '
+    - continue-on-error: true
+      name: Upload JSON report
       uses: actions/upload-artifact@v4
       with:
         name: crowdin-contributors-json
         path: ${{ env.CONTRIBUTORS_JSON_FILENAME }}.json
-
-    - name: Create Pull Request
+    - continue-on-error: true
+      name: Create Pull Request
       uses: peter-evans/create-pull-request@v6
       with:
-        title: Update Crowdin Contributors table
-        body: By [action-crowdin-contributors](https://github.com/andrii-bodnar/action-crowdin-contributors) GitHub action
-        commit-message: "chore: update crowdin contributors table"
-        committer: Crowdin Bot <support+bot@crowdin.com>
+        body: By [action-crowdin-contributors](https://github.com/andrii-bodnar/action-crowdin-contributors)
+          GitHub action
         branch: crowdin-contributors/patch
+        commit-message: 'chore: update crowdin contributors table'
+        committer: Crowdin Bot <support+bot@crowdin.com>
+        title: Update Crowdin Contributors table
+name: Crowdin Contributors Action
+on:
+  repository_dispatch:
+    types: trigger-ga___crowdin_contributors.yml
